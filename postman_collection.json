@@ -1,0 +1,865 @@
+{
+	"info": {
+		"_postman_id": "a1b2c3d4-e5f6-7890-1234-abcdef123456",
+		"name": "Marketplace API (Modules 1-6) - Corrected",
+		"description": "A comprehensive and corrected Postman collection for the Spring Boot Marketplace Backend, covering all modules from user auth to financials.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Authentication & Setup",
+			"description": "Start here. Register an operator, then log in as Operator and Seller to get JWTs. Set the base commission rate.",
+			"item": [
+				{
+					"name": "Register Initial Operator",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"superoperator\",\n    \"password\": \"StrongOpPassword123!\",\n    \"email\": \"operator.admin@example.com\",\n    \"roles\": [\"OPERATOR\"]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/register/operator",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"register",
+								"operator"
+							]
+						},
+						"description": "Creates the first administrative user. Should typically only be run once."
+					},
+					"response": []
+				},
+				{
+					"name": "Login (Operator)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"pm.collectionVariables.set(\"jwt_token_operator\", jsonData.token);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"superoperator\",\n    \"password\": \"StrongOpPassword123!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Authenticates an Operator and saves the JWT to a collection variable `jwt_token_operator`."
+					},
+					"response": []
+				},
+				{
+					"name": "Login (Seller)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"pm.collectionVariables.set(\"jwt_token_seller\", jsonData.token);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"iwc_john_doe\",\n    \"password\": \"IWCsecurePass789!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/auth/login",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Authenticates a Seller (IWC) and saves the JWT to a collection variable `jwt_token_seller`."
+					},
+					"response": []
+				},
+				{
+					"name": "Operator: Update Platform Base Commission Rate",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_operator}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"configKey\": \"BASE_COMMISSION_RATE\",\n    \"configValue\": \"0.02\",\n    \"description\": \"Base rate multiplied by product price and seller rating.\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/operators/config",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"operators",
+								"config"
+							]
+						},
+						"description": "Sets the global base commission rate. Essential for commission calculations."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Operator: Seller & Product Management",
+			"item": [
+				{
+					"name": "Create Seller (IWC)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"pm.collectionVariables.set(\"sellerProfileId\", jsonData.id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_operator}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"user\": {\n        \"username\": \"iwc_john_doe\",\n        \"password\": \"IWCsecurePass789!\",\n        \"email\": \"john.doe.iwc@example.com\",\n        \"roles\": [\"SELLER\"]\n    },\n    \"name\": \"John Doe (IWC)\",\n    \"contactPhone\": \"555-101-2020\",\n    \"address\": \"123 Consultant Row, Tech City\",\n    \"rating\": 3,\n    \"payPalEmail\": \"john.doe.paypal@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/operators/create-seller",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"operators",
+								"create-seller"
+							]
+						},
+						"description": "Onboards a new seller. Saves the returned `id` to the `sellerProfileId` variable."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Seller Status to ACTIVE",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_operator}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"overallStatus\": \"ACTIVE\",\n    \"reason\": \"Manually activated for testing.\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/operators/sellers/{{sellerProfileId}}/status",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"operators",
+								"sellers",
+								"{{sellerProfileId}}",
+								"status"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Master Product",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"pm.collectionVariables.set(\"productId\", jsonData.id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_operator}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Smartphone Model Pro\",\n    \"description\": \"Latest generation smartphone.\",\n    \"sku\": \"PHONE-PRO-256GB-GRY\",\n    \"category\": \"Mobile Devices\",\n    \"basePrice\": \"999.00\",\n    \"attributes\": { \"Storage\": \"256GB\" }\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/operators/products",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"operators",
+								"products"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Assign Product to Seller",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"pm.collectionVariables.set(\"assignmentId\", jsonData.id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_operator}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"productId\": {{productId}},\n    \"initialStock\": 10\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/operators/sellers/{{sellerProfileId}}/products/assign",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"operators",
+								"sellers",
+								"{{sellerProfileId}}",
+								"products",
+								"assign"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Seller (IWC): Actions",
+			"description": "Requests performed by a logged-in seller.",
+			"item": [
+				{
+					"name": "Get My Assigned Products",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_seller}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/sellers/my-products",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sellers",
+								"my-products"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update My Stock",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_seller}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"stockQuantity\": 8\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sellers/my-products/{{assignmentId}}/stock",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sellers",
+								"my-products",
+								"{{assignmentId}}",
+								"stock"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Order for Customer",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var jsonData = JSON.parse(responseBody);",
+									"pm.collectionVariables.set(\"orderId\", jsonData.id);",
+									"if (jsonData.items && jsonData.items.length > 0) {",
+									"    pm.collectionVariables.set(\"orderItemId\", jsonData.items[0].id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_seller}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"customerName\": \"Jane Smith (IWC Customer)\",\n    \"customerEmail\": \"jane.smith.customer@example.com\",\n    \"shippingAddress\": \"123 Main St, Anytown, USA\",\n    \"items\": [\n        {\n            \"sellerProductAssignmentId\": {{assignmentId}},\n            \"quantity\": 1\n        }\n    ],\n    \"paymentId\": \"POS-TXN-IWCSALE001\",\n    \"paymentStatus\": \"PAID_IN_STORE\",\n    \"paymentMethodDetails\": \"Credit Card via POS\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/orders",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"orders"
+							]
+						},
+						"description": "Seller creates an order for their customer. Saves the `orderId` and first `orderItemId` to variables."
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Orders",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_seller}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/sellers/my-orders",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sellers",
+								"my-orders"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Fulfill an Order Item",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_seller}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"SHIPPED\",\n    \"trackingNumber\": \"IN_STORE_HANDOVER_RECEIPT_884321\",\n    \"shippingCarrier\": \"In-Store Pickup\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/sellers/my-orders/{{orderItemId}}/fulfill",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"sellers",
+								"my-orders",
+								"{{orderItemId}}",
+								"fulfill"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. Operator: Order & Financials",
+			"description": "Requests performed by an Operator to manage orders and finances.",
+			"item": [
+				{
+					"name": "Get All Orders",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_operator}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/operators/orders",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"operators",
+								"orders"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get a Specific Order",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_operator}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/operators/orders/{{orderId}}",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"operators",
+								"orders",
+								"{{orderId}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Order Status to DELIVERED",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_operator}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"status\": \"DELIVERED\",\n    \"reason\": \"Customer confirmed receipt in-store.\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/operators/orders/{{orderId}}/status",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"operators",
+								"orders",
+								"{{orderId}}",
+								"status"
+							]
+						},
+						"description": "This is a critical step. Changing status to DELIVERED will trigger the creation of financial ledger entries for the seller."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Seller Ledger",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_operator}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/operators/sellers/{{sellerProfileId}}/ledger",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"operators",
+								"sellers",
+								"{{sellerProfileId}}",
+								"ledger"
+							]
+						},
+						"description": "After an order is delivered, check the seller's ledger. You should see a `SALE_CREDIT` and a `COMMISSION_DEBIT`."
+					},
+					"response": []
+				},
+				{
+					"name": "Initiate Payout Run",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_operator}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/operators/payouts/initiate",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"operators",
+								"payouts",
+								"initiate"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Payouts",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{jwt_token_operator}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/operators/payouts",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"operators",
+								"payouts"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. Webhooks (Simulated)",
+			"item": [
+				{
+					"name": "ID.me Status Update",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Webhook-Secret",
+								"value": "ReplaceWithRealIdMeSecretKeyFromPropertiesOrEnv"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"sellerProfileId\": 1,\n    \"idMeExternalId\": \"idme-real-ext-id-777\",\n    \"status\": \"APPROVED\",\n    \"reason\": \"ID.me verification passed.\",\n    \"verificationDetailsLink\": \"https://id.me/details/mocklink123\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/webhooks/idme/status",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"webhooks",
+								"idme",
+								"status"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "LMS Completion Update",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "X-Webhook-Secret",
+								"value": "ReplaceWithRealLmsSecretKeyFromPropertiesOrEnv"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"sellerProfileId\": 1,\n    \"lmsExternalId\": \"lms-real-course-id-888\",\n    \"status\": \"COMPLETED\",\n    \"courseName\": \"Official IWC Onboarding Program\",\n    \"completionDate\": \"2025-01-20T11:30:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/webhooks/lms/completion",
+							"host": [
+								"{{baseUrl}}"
+							],
+							"path": [
+								"api",
+								"webhooks",
+								"lms",
+								"completion"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080"
+		},
+		{
+			"key": "jwt_token_operator",
+			"value": ""
+		},
+		{
+			"key": "jwt_token_seller",
+			"value": ""
+		},
+		{
+			"key": "sellerProfileId",
+			"value": ""
+		},
+		{
+			"key": "productId",
+			"value": ""
+		},
+		{
+			"key": "assignmentId",
+			"value": ""
+		},
+		{
+			"key": "orderId",
+			"value": ""
+		},
+		{
+			"key": "orderItemId",
+			"value": ""
+		}
+	]
+}
