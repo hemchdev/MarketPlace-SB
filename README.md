@@ -1,6 +1,6 @@
 # Marketplace API
 
-A comprehensive and corrected Postman collection for the Spring Boot Marketplace Backend, covering all modules from user authorization to financial operations.
+This document provides a comprehensive list of all API endpoints for the Marketplace Backend project. It includes scenarios, request/response bodies, and authorization requirements for testing with a tool like Postman.
 
 ## Overview
 
@@ -24,7 +24,7 @@ Before you begin, ensure you have the following:
 Follow these steps to configure your Postman environment.
 
 #### 1. Import the Collection
-Import the provided JSON file (`Marketplace API (Modules 1-6) - Corrected.postman_collection.json`) into Postman.
+Import the provided JSON file (`Marketplace API postman_collection.json`) into Postman.
 
 #### 2. Set the Base URL
 The collection uses a variable `{{baseUrl}}` for the server's address.
