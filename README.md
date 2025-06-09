@@ -1,123 +1,286 @@
-Complete Postman API Testing GuideThis guide provides the necessary details to test every endpoint in the marketplace application.Part 1: Prerequisites & Setup1.1. User Authentication (JWT Token)Most endpoints require a JSON Web Token (JWT) for an authenticated user. You must first log in to get this token.Create Users:You can create an OPERATOR user via the /api/auth/register/operator endpoint (see below) or have one created by the DataInitializer.You can create a SELLER user via the POST /api/operators/create-seller endpoint.Get the Token:Method: POSTURL: {{BASE_URL}}/api/auth/loginBody (raw, JSON):{
-    "username": "your_operator_username",
-    "password": "your_operator_password"
-}
-Use the Token:Copy the token value from the login response.For all subsequent authenticated requests, go to the Authorization tab.Select Type: Bearer Token.Paste the token into the Token field.Part 2: Auth Controller (/api/auth)These endpoints manage user authentication and registration. They are public.Login UserDescription: Authenticates a user and returns a JWT.Method: POSTURL: {{BASE_URL}}/api/auth/loginBody (raw, JSON):{
-    "username": "operator_user",
-    "password": "password123"
-}
-Register New OperatorDescription: Creates a new user with the OPERATOR role.Method: POSTURL: {{BASE_URL}}/api/auth/register/operatorBody (raw, JSON):{
-    "username": "new_operator",
-    "password": "a_very_strong_password",
-    "email": "new.operator@example.com",
-    "roles": ["OPERATOR"]
-}
-Part 3: Operator Controller (/api/operators)All endpoints require an OPERATOR role JWT token.3.1. Seller ManagementCreate Seller:Method: POSTURL: {{BASE_URL}}/api/operators/create-sellerBody (raw, JSON):{
-    "user": {
-        "username": "seller_one",
-        "password": "a_strong_seller_password",
-        "email": "seller.one@example.com"
-    },
-    "name": "Seller One's Emporium",
-    "contactPhone": "555-123-4567",
-    "address": "100 Commerce St, Bengaluru",
-    "rating": 4.5
-}
-Get All Sellers:Method: GETURL: {{BASE_URL}}/api/operators/sellersGet Seller by ID:Method: GETURL: {{BASE_URL}}/api/operators/sellers/1 (Replace 1 with a valid sellerProfileId)Update Seller Status:Method: PUTURL: {{BASE_URL}}/api/operators/sellers/1/statusBody (raw, JSON):{
-    "overallStatus": "ACTIVE",
-    "reason": "Manual activation by operator."
-}
-Initiate ID.me Verification for Seller:Method: POSTURL: {{BASE_URL}}/api/operators/sellers/1/initiate-idmeUpdate Seller Details (Rating/Email):Method: PUTURL: {{BASE_URL}}/api/operators/sellers/1/detailsBody (raw, JSON):{
-    "rating": 4,
-    "payPalEmail": "new.paypal.email@example.com"
-}
-3.2. Product Catalog ManagementCreate Master Product:Method: POSTURL: {{BASE_URL}}/api/operators/productsBody (raw, JSON):{
-    "name": "Premium Wireless Mouse",
-    "description": "Ergonomic wireless mouse with 2-year warranty.",
-    "sku": "PROD-MOUSE-W01",
-    "category": "Computer Accessories",
-    "basePrice": 49.99,
-    "imageUrls": ["https://example.com/mouse.jpg"],
-    "attributes": {
-        "color": "black",
-        "dpi": "1600"
+# Marketplace API
+
+This document provides a comprehensive list of all API endpoints for the Marketplace Backend project. It includes scenarios, request/response bodies, and authorization requirements for testing with a tool like Postman.
+
+## Overview
+
+This document provides instructions on how to use the "Marketplace API" Postman collection to test the functionalities of the Spring Boot backend. The API simulates a marketplace environment with three main roles:
+
+* **Operator**: The administrator of the platform. Responsible for managing sellers, products, and financials.
+* **Seller (IWC)**: An "Independent Warketing Consultant" who sells products on the platform.
+* **Customer**: The end-user who purchases products from a seller.
+
+The collection is organized into a logical workflow, guiding you from the initial setup to complex financial transactions.
+
+## Prerequisites
+
+Before you begin, ensure you have the following:
+
+* **Running Backend Application**: The Spring Boot Marketplace Backend application must be running and accessible.
+* **Postman**: You need the Postman desktop client or web version to import and use the collection.
+
+## Setup & Configuration
+
+Follow these steps to configure your Postman environment.
+
+#### 1. Import the Collection
+Import the provided JSON file (`Marketplace API postman_collection.json`) into Postman.
+
+#### 2. Set the Base URL
+The collection uses a variable `{{baseUrl}}` for the server's address.
+In Postman, go to the collection variables and set the `Current Value` of `baseUrl` to your running application's address (e.g., `http://localhost:8080`).
+
+#### 3. Initial Authentication Workflow
+The requests in the **"1. Authentication & Setup"** folder are designed to be run first. They will authenticate the primary users and set up the necessary collection variables automatically.
+
+1.  **Register Initial Operator**: Run this request to create the first `OPERATOR` user. This should typically only be run once.
+2.  **Login (Operator)**: This authenticates the operator. The test script will automatically capture the returned JWT and save it to the `jwt_token_operator` collection variable.
+3.  **Create Seller (IWC)**: Found in folder **"2. Operator: Seller & Product Management"**, this request creates a new seller account. The test script saves the new seller's ID to the `sellerProfileId` variable.
+4.  **Login (Seller)**: Use this request to log in as the newly created seller. The test script saves the seller's JWT to the `jwt_token_seller` variable.
+5.  **Update Platform Base Commission Rate**: As the operator, run this request to set the global commission rate, which is crucial for financial calculations.
+
+After completing these steps, the required authentication tokens and IDs will be stored in Postman's collection variables, allowing you to seamlessly run the other requests in the collection.
+
+---
+
+## API Endpoints
+
+The collection is divided into several modules that represent the core functionalities of the marketplace.
+
+### Module 1: Authentication & Setup
+*Start here. This module handles the creation of the initial operator and the login process for both operators and sellers, storing their JWTs for subsequent requests.*
+
+#### Register Initial Operator
+* **Request**: `POST {{baseUrl}}/api/auth/register/operator`
+* **Description**: Creates the first administrative user. Should typically only be run once.
+* **Body**:
+    ```json
+    {
+        "username": "superoperator",
+        "password": "StrongOpPassword123!",
+        "email": "operator.admin@example.com",
+        "roles": ["OPERATOR"]
     }
-}
-Get All Master Products:Method: GETURL: {{BASE_URL}}/api/operators/productsGet Master Product by ID:Method: GETURL: {{BASE_URL}}/api/operators/products/1Update Master Product:Method: PUTURL: {{BASE_URL}}/api/operators/products/1Body (raw, JSON): (Same structure as create)Delete Master Product:Method: DELETEURL: {{BASE_URL}}/api/operators/products/13.3. Seller Product AssignmentsAssign Product to Seller:Method: POSTURL: {{BASE_URL}}/api/operators/sellers/1/products/assignBody (raw, JSON):{
-    "productId": 1,
-    "initialStock": 200
-}
-Get a Seller's Assigned Products:Method: GETURL: {{BASE_URL}}/api/operators/sellers/1/productsUpdate a Seller's Product Assignment:Method: PUTURL: {{BASE_URL}}/api/operators/sellers/1/products/1 (sellerId/assignmentId)Body (raw, JSON):{
-    "stockQuantity": 250,
-    "isSellableBySeller": false
-}
-3.4. Operator Order ManagementGet All Orders:Method: GETURL: {{BASE_URL}}/api/operators/ordersGet Order by ID:Method: GETURL: {{BASE_URL}}/api/operators/orders/1Update Order Status:Method: PUTURL: {{BASE_URL}}/api/operators/orders/1/statusBody (raw, JSON):{
-    "status": "CANCELLED_BY_OPERATOR",
-    "reason": "Suspected fraudulent activity."
-}
-3.5. Financials, Payouts & CommissionsInitiate Payouts for All Sellers:Method: POSTURL: {{BASE_URL}}/api/operators/payouts/initiateGet Seller Ledger:Method: GETURL: {{BASE_URL}}/api/operators/sellers/1/ledgerGet All Payouts:Method: GETURL: {{BASE_URL}}/api/operators/payoutsCreate Commission Tier:Method: POSTURL: {{BASE_URL}}/api/operators/commissions/tiersBody (raw, JSON):{
-    "tierName": "Bronze Tier",
-    "minRatingRequired": 3.0,
-    "commissionRate": 0.1000,
-    "isActive": true
-}
-Get All Commission Tiers:Method: GETURL: {{BASE_URL}}/api/operators/commissions/tiersUpdate a Commission Tier:Method: PUTURL: {{BASE_URL}}/api/operators/commissions/tiers/1Body (raw, JSON): (Same structure as create)Delete a Commission Tier:Method: DELETEURL: {{BASE_URL}}/api/operators/commissions/tiers/1Set Seller Commission Override:Method: PUTURL: {{BASE_URL}}/api/operators/sellers/1/commission-overrideBody (raw, text): (Note: Content-Type should be application/json)0.085
-Issue a Refund:Method: POSTURL: {{BASE_URL}}/api/operators/refundsBody (raw, JSON):{
-    "sellerProfileId": 1,
-    "orderId": 1,
-    "amount": 15.99,
-    "reason": "Customer goodwill for delayed shipment."
-}
-3.6. Platform ConfigurationGet All Platform Configurations:Method: GETURL: {{BASE_URL}}/api/operators/configUpdate a Platform Configuration:Method: PUTURL: {{BASE_URL}}/api/operators/configBody (raw, JSON):{
-    "configKey": "BASE_COMMISSION_RATE",
-    "configValue": "0.15",
-    "description": "The default platform commission rate (15%) for sellers who do not qualify for a specific tier."
-}
-Part 4: Seller Controller (/api/sellers)All endpoints require a SELLER role JWT token.Get My Assigned Products:Method: GETURL: {{BASE_URL}}/api/sellers/my-productsUpdate My Stock:Method: PUTURL: {{BASE_URL}}/api/sellers/my-products/1/stock (assignmentId)Body (raw, JSON):{
-    "stockQuantity": 195
-}
-Toggle My Product's Sellable Status:Method: PUTURL: {{BASE_URL}}/api/sellers/my-products/1/toggle-sellableBody (raw, JSON):{
-    "isSellableBySeller": true
-}
-Get My Orders:Method: GETURL: {{BASE_URL}}/api/sellers/my-ordersFulfill an Order Item:Method: PUTURL: {{BASE_URL}}/api/sellers/my-orders/1/fulfill (orderItemId)Body (raw, JSON) for Shipping:{
-    "status": "SHIPPED",
-    "trackingNumber": "1Z999AA10123456784",
-    "shippingCarrier": "UPS",
-    "estimatedDeliveryDate": "2025-06-15T18:00:00Z"
-}
-Body (raw, JSON) for Cancelling:{
-    "status": "CANCELLED_BY_SELLER",
-    "cancellationReason": "Item is out of stock and will not be replenished."
-}
-Part 5: Order Controller (/api/orders)Requires a SELLER role JWT token.Create an Order:Method: POSTURL: {{BASE_URL}}/api/ordersBody (raw, JSON):{
-    "customerName": "Ravi Kumar",
-    "customerEmail": "ravi.kumar@example.com",
-    "customerPhone": "+919988776655",
-    "shippingAddress": "456 Tech Avenue, Koramangala, Bengaluru, Karnataka 560034",
-    "billingAddress": "456 Tech Avenue, Koramangala, Bengaluru, Karnataka 560034",
-    "paymentStatus": "PAID_IN_STORE",
-    "currency": "INR",
-    "items": [
-        {
-            "sellerProductAssignmentId": 1,
-            "quantity": 2
+    ```
+
+#### Login (Operator)
+* **Request**: `POST {{baseUrl}}/api/auth/login`
+* **Description**: Authenticates an Operator and saves the JWT to a collection variable `jwt_token_operator`.
+* **Body**:
+    ```json
+    {
+        "username": "superoperator",
+        "password": "StrongOpPassword123!"
+    }
+    ```
+
+#### Login (Seller)
+* **Request**: `POST {{baseUrl}}/api/auth/login`
+* **Description**: Authenticates a Seller (IWC) and saves the JWT to a collection variable `jwt_token_seller`.
+* **Body**:
+    ```json
+    {
+        "username": "iwc_john_doe",
+        "password": "IWCsecurePass789!"
+    }
+    ```
+
+#### Operator: Update Platform Base Commission Rate
+* **Request**: `PUT {{baseUrl}}/api/operators/config`
+* **Authorization**: Operator JWT (`{{jwt_token_operator}}`)
+* **Description**: Sets the global base commission rate. Essential for commission calculations.
+* **Body**:
+    ```json
+    {
+        "configKey": "BASE_COMMISSION_RATE",
+        "configValue": "0.02",
+        "description": "Base rate multiplied by product price and seller rating."
+    }
+    ```
+
+### Module 2: Operator - Seller & Product Management
+*Contains requests for the operator to manage sellers and the product catalog.*
+
+#### Create Seller (IWC)
+* **Request**: `POST {{baseUrl}}/api/operators/create-seller`
+* **Authorization**: Operator JWT (`{{jwt_token_operator}}`)
+* **Description**: Onboards a new seller. Saves the returned `id` to the `sellerProfileId` variable.
+* **Body**:
+    ```json
+    {
+        "user": {
+            "username": "iwc_john_doe",
+            "password": "IWCsecurePass789!",
+            "email": "john.doe.iwc@example.com",
+            "roles": ["SELLER"]
         },
-        {
-            "sellerProductAssignmentId": 2,
-            "quantity": 1
-        }
-    ]
-}
-Part 6: Webhook Controller (/api/webhooks)These endpoints are public but require a secret key passed in the header for security.Handle ID.me Status Update:Method: POSTURL: {{BASE_URL}}/api/webhooks/idme/statusHeaders:X-Webhook-Secret: your_idme_webhook_secret_from_propertiesBody (raw, JSON):{
-    "sellerProfileId": 1,
-    "idMeExternalId": "idme-uuid-12345",
-    "status": "APPROVED",
-    "verificationDetailsLink": "https://id.me/some_details_link"
-}
-Handle LMS Completion Update:Method: POSTURL: {{BASE_URL}}/api/webhooks/lms/completionHeaders:X-Webhook-Secret: your_lms_webhook_secret_from_propertiesBody (raw, JSON):{
-    "sellerProfileId": 1,
-    "lmsExternalId": "lms-user-67890",
-    "status": "COMPLETED",
-    "courseName": "Marketplace Seller Essentials",
-    "completionDate": "2025-06-10T10:00:00Z"
-}
+        "name": "John Doe (IWC)",
+        "contactPhone": "555-101-2020",
+        "address": "123 Consultant Row, Tech City",
+        "rating": 3,
+        "payPalEmail": "john.doe.paypal@example.com"
+    }
+    ```
+
+#### Update Seller Status to ACTIVE
+* **Request**: `PUT {{baseUrl}}/api/operators/sellers/{{sellerProfileId}}/status`
+* **Authorization**: Operator JWT (`{{jwt_token_operator}}`)
+* **Description**: Activates a seller's account, allowing them to participate in the marketplace.
+* **Body**:
+    ```json
+    {
+        "overallStatus": "ACTIVE",
+        "reason": "Manually activated for testing."
+    }
+    ```
+
+#### Create Master Product
+* **Request**: `POST {{baseUrl}}/api/operators/products`
+* **Authorization**: Operator JWT (`{{jwt_token_operator}}`)
+* **Description**: Adds a new base product to the platform's catalog. Saves the `id` to `productId`.
+* **Body**:
+    ```json
+    {
+        "name": "Smartphone Model Pro",
+        "description": "Latest generation smartphone.",
+        "sku": "PHONE-PRO-256GB-GRY",
+        "category": "Mobile Devices",
+        "basePrice": "999.00",
+        "attributes": { "Storage": "256GB" }
+    }
+    ```
+
+#### Assign Product to Seller
+* **Request**: `POST {{baseUrl}}/api/operators/sellers/{{sellerProfileId}}/products/assign`
+* **Authorization**: Operator JWT (`{{jwt_token_operator}}`)
+* **Description**: Links a master product to a specific seller and sets their initial stock. Saves the `id` to `assignmentId`.
+* **Body**:
+    ```json
+    {
+        "productId": "{{productId}}",
+        "initialStock": 10
+    }
+    ```
+
+### Module 3: Seller (IWC) - Actions
+*Covers the actions a logged-in seller can perform.*
+
+#### Get My Assigned Products
+* **Request**: `GET {{baseUrl}}/api/sellers/my-products`
+* **Authorization**: Seller JWT (`{{jwt_token_seller}}`)
+
+#### Update My Stock
+* **Request**: `PUT {{baseUrl}}/api/sellers/my-products/{{assignmentId}}/stock`
+* **Authorization**: Seller JWT (`{{jwt_token_seller}}`)
+* **Body**:
+    ```json
+    {
+        "stockQuantity": 8
+    }
+    ```
+
+#### Create Order for Customer
+* **Request**: `POST {{baseUrl}}/api/orders`
+* **Authorization**: Seller JWT (`{{jwt_token_seller}}`)
+* **Description**: A seller can create an order on behalf of a customer (e.g., for POS transactions). Saves `orderId` and `orderItemId`.
+* **Body**:
+    ```json
+    {
+        "customerName": "Jane Smith (IWC Customer)",
+        "customerEmail": "jane.smith.customer@example.com",
+        "shippingAddress": "123 Main St, Anytown, USA",
+        "items": [
+            {
+                "sellerProductAssignmentId": "{{assignmentId}}",
+                "quantity": 1
+            }
+        ],
+        "paymentId": "POS-TXN-IWCSALE001",
+        "paymentStatus": "PAID_IN_STORE",
+        "paymentMethodDetails": "Credit Card via POS"
+    }
+    ```
+
+#### Get My Orders
+* **Request**: `GET {{baseUrl}}/api/sellers/my-orders`
+* **Authorization**: Seller JWT (`{{jwt_token_seller}}`)
+
+#### Fulfill an Order Item
+* **Request**: `PUT {{baseUrl}}/api/sellers/my-orders/{{orderItemId}}/fulfill`
+* **Authorization**: Seller JWT (`{{jwt_token_seller}}`)
+* **Body**:
+    ```json
+    {
+        "status": "SHIPPED",
+        "trackingNumber": "IN_STORE_HANDOVER_RECEIPT_884321",
+        "shippingCarrier": "In-Store Pickup"
+    }
+    ```
+
+### Module 4: Operator - Order & Financials
+*Contains endpoints for the operator to oversee all orders and manage the financial ledger.*
+
+#### Get All Orders
+* **Request**: `GET {{baseUrl}}/api/operators/orders`
+* **Authorization**: Operator JWT (`{{jwt_token_operator}}`)
+
+#### Get a Specific Order
+* **Request**: `GET {{baseUrl}}/api/operators/orders/{{orderId}}`
+* **Authorization**: Operator JWT (`{{jwt_token_operator}}`)
+
+#### Update Order Status to DELIVERED
+* **Request**: `PUT {{baseUrl}}/api/operators/orders/{{orderId}}/status`
+* **Authorization**: Operator JWT (`{{jwt_token_operator}}`)
+* **Description**: Critical step. When an operator marks an order as "DELIVERED", the system automatically triggers financial calculations and creates ledger entries for the seller's sales credit and the platform's commission debit.
+* **Body**:
+    ```json
+    {
+        "status": "DELIVERED",
+        "reason": "Customer confirmed receipt in-store."
+    }
+    ```
+
+#### Get Seller Ledger
+* **Request**: `GET {{baseUrl}}/api/operators/sellers/{{sellerProfileId}}/ledger`
+* **Authorization**: Operator JWT (`{{jwt_token_operator}}`)
+* **Description**: After an order is delivered, check the seller's ledger. You should see a `SALE_CREDIT` and a `COMMISSION_DEBIT`.
+
+#### Initiate Payout Run
+* **Request**: `POST {{baseUrl}}/api/operators/payouts/initiate`
+* **Authorization**: Operator JWT (`{{jwt_token_operator}}`)
+* **Description**: Triggers the process to pay sellers their outstanding balances.
+
+#### Get All Payouts
+* **Request**: `GET {{baseUrl}}/api/operators/payouts`
+* **Authorization**: Operator JWT (`{{jwt_token_operator}}`)
+
+### Module 5: Webhooks (Simulated)
+*This module contains requests to simulate incoming webhooks from external services to test asynchronous status updates.*
+
+#### ID.me Status Update
+* **Request**: `POST {{baseUrl}}/api/webhooks/idme/status`
+* **Headers**: Requires `X-Webhook-Secret`. Set the value to the secret key configured in your backend application.
+* **Body**:
+    ```json
+    {
+        "sellerProfileId": 1,
+        "idMeExternalId": "idme-real-ext-id-777",
+        "status": "APPROVED",
+        "reason": "ID.me verification passed.",
+        "verificationDetailsLink": "https://id.me/details/mocklink123"
+    }
+    ```
+
+#### LMS Completion Update
+* **Request**: `POST {{baseUrl}}/api/webhooks/lms/completion`
+* **Headers**: Requires `X-Webhook-Secret`. Set the value to the secret key configured in your backend application.
+* **Body**:
+    ```json
+    {
+        "sellerProfileId": 1,
+        "lmsExternalId": "lms-real-course-id-888",
+        "status": "COMPLETED",
+        "courseName": "Official IWC Onboarding Program",
+        "completionDate": "2025-01-20T11:30:00Z"
+    }
+    ```
