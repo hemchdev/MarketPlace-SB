@@ -13,26 +13,26 @@ public class SellerProfileDto {
     private Long userId;
     private String username;
     private String userEmail;
-    private String name; // Was businessName
+    private String name;
     private String contactPhone;
     private String address;
     private IdMeStatus idMeStatus;
     private String idMeExternalId;
     private String idMeVerificationUrl;
-    // Mapped from new fields in Entity
     private String idMeVerificationDetailsLink;
     private LmsStatus lmsStatus;
     private String lmsExternalId;
     private String lmsInvitationUrl;
-    // Mapped from new fields in Entity
     private String lmsCourseName;
     private String lmsCompletionDateDetails;
     private SellerOverallStatus overallStatus;
     private String statusReason;
-    private BigDecimal commissionRate;
-    private String payPalEmail;
+    private Double currentRating;
+    private BigDecimal commissionRateOverride;
+    private String payPalEmail; // RESTORED
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String createdBy;
     private String updatedBy;
 }
+

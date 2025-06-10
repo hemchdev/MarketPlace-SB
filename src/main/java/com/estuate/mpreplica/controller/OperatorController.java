@@ -1,7 +1,15 @@
 package com.estuate.mpreplica.controller;
 
 import com.estuate.mpreplica.dto.*;
+import com.estuate.mpreplica.entity.CommissionTier;
+import com.estuate.mpreplica.entity.Payout;
 import com.estuate.mpreplica.entity.PlatformConfiguration;
+import com.estuate.mpreplica.entity.SellerProfile;
+import com.estuate.mpreplica.exception.ResourceNotFoundException;
+import com.estuate.mpreplica.mapper.PayoutMapper;
+import com.estuate.mpreplica.mapper.SellerProfileMapper;
+import com.estuate.mpreplica.repository.CommissionTierRepository;
+import com.estuate.mpreplica.repository.SellerProfileRepository;
 import com.estuate.mpreplica.service.*;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -12,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
@@ -27,6 +36,10 @@ public class OperatorController {
     @Autowired private OrderService orderService;
     @Autowired private PayoutService payoutService;
     @Autowired private PlatformConfigurationService configurationService;
+    @Autowired private CommissionTierRepository commissionTierRepository;
+    @Autowired private SellerProfileRepository sellerProfileRepository;
+    @Autowired private SellerProfileMapper sellerProfileMapper;
+    @Autowired private PayoutMapper payoutMapper;
 
     // === Seller Management ===
     @PostMapping("/create-seller")
@@ -72,7 +85,6 @@ public class OperatorController {
         }
     }
 
-    // Corrected endpoint to update seller's rating and PayPal email
     @PutMapping("/sellers/{sellerProfileId}/details")
     public ResponseEntity<?> updateSellerDetails(@PathVariable Long sellerProfileId,
                                                  @Valid @RequestBody SellerDetailsUpdateDto detailsUpdateDto) {
@@ -160,12 +172,37 @@ public class OperatorController {
         }
     }
 
-    // === Financials & Payouts Management ===
-    @PostMapping("/payouts/initiate")
-    public ResponseEntity<PayoutRunSummaryDto> initiatePayouts() {
-        logger.info("Operator request to initiate payout run.");
-        PayoutRunSummaryDto summary = payoutService.initiatePayoutRun();
+    // === Financials, Payouts & Commission Management ===
+
+    @GetMapping("/sellers/{sellerProfileId}/financial-summary")
+    public ResponseEntity<SellerFinancialSummaryDto> getSellerFinancialSummary(@PathVariable Long sellerProfileId) {
+        logger.info("Operator request for financial summary for seller ID: {}", sellerProfileId);
+        SellerFinancialSummaryDto summary = payoutService.getFinancialSummaryForSeller(sellerProfileId);
         return ResponseEntity.ok(summary);
+    }
+
+    @PostMapping("/payouts/initiate-all")
+    public ResponseEntity<PayoutRunSummaryDto> initiatePayoutsForAll() {
+        logger.info("Operator request to initiate payout run for ALL sellers.");
+        PayoutRunSummaryDto summary = payoutService.initiatePayoutRunForAllSellers();
+        return ResponseEntity.ok(summary);
+    }
+
+    @PostMapping("/sellers/{sellerProfileId}/payouts/initiate")
+    public ResponseEntity<?> initiatePayoutForSeller(@PathVariable Long sellerProfileId) {
+        logger.info("Operator request to initiate payout for seller ID: {}", sellerProfileId);
+        try {
+            SellerProfile seller = sellerProfileService.getSellerProfileEntityById(sellerProfileId);
+            Payout payout = payoutService.initiatePayoutForSeller(seller);
+            if (payout != null) {
+                return ResponseEntity.ok(payoutMapper.toDto(payout));
+            } else {
+                return ResponseEntity.ok(new MessageResponseDto("Payout skipped. Seller may not be eligible or balance is below minimum."));
+            }
+        } catch (Exception e) {
+            logger.error("Error initiating payout for seller ID {}: {}", sellerProfileId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new MessageResponseDto(e.getMessage()));
+        }
     }
 
     @GetMapping("/sellers/{sellerProfileId}/ledger")
@@ -180,6 +217,62 @@ public class OperatorController {
         logger.info("Operator request to view all payouts.");
         List<PayoutDto> payouts = payoutService.getAllPayouts();
         return ResponseEntity.ok(payouts);
+    }
+
+    @PostMapping("/commissions/tiers")
+    public ResponseEntity<CommissionTier> createCommissionTier(@Valid @RequestBody CommissionTier tier) {
+        logger.info("Operator creating new commission tier: {}", tier.getTierName());
+        CommissionTier savedTier = commissionTierRepository.save(tier);
+        return new ResponseEntity<>(savedTier, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/commissions/tiers")
+    public ResponseEntity<List<CommissionTier>> getAllCommissionTiers() {
+        logger.info("Operator fetching all commission tiers.");
+        return ResponseEntity.ok(commissionTierRepository.findAll());
+    }
+
+    @PutMapping("/commissions/tiers/{tierId}")
+    public ResponseEntity<CommissionTier> updateCommissionTier(@PathVariable Long tierId, @Valid @RequestBody CommissionTier tierDetails) {
+        logger.info("Operator updating commission tier ID: {}", tierId);
+        CommissionTier tier = commissionTierRepository.findById(tierId)
+                .orElseThrow(() -> new ResourceNotFoundException("CommissionTier", "id", tierId));
+
+        tier.setTierName(tierDetails.getTierName());
+        tier.setMinRatingRequired(tierDetails.getMinRatingRequired());
+        tier.setCommissionRate(tierDetails.getCommissionRate());
+        tier.setActive(tierDetails.isActive());
+
+        return ResponseEntity.ok(commissionTierRepository.save(tier));
+    }
+
+    @DeleteMapping("/commissions/tiers/{tierId}")
+    public ResponseEntity<?> deleteCommissionTier(@PathVariable Long tierId) {
+        logger.info("Operator deleting commission tier ID: {}", tierId);
+        commissionTierRepository.deleteById(tierId);
+        return ResponseEntity.ok(new MessageResponseDto("Commission tier deleted successfully."));
+    }
+
+    @PutMapping("/sellers/{sellerProfileId}/commission-override")
+    public ResponseEntity<?> setSellerCommissionOverride(@PathVariable Long sellerProfileId, @RequestBody(required = false) BigDecimal overrideRate) {
+        logger.info("Operator setting commission override for seller ID {} to {}", sellerProfileId, overrideRate);
+        SellerProfile profile = sellerProfileService.getSellerProfileEntityById(sellerProfileId);
+        profile.setCommissionRateOverride(overrideRate);
+        SellerProfile updatedProfile = sellerProfileRepository.save(profile);
+        return ResponseEntity.ok(sellerProfileMapper.toDto(updatedProfile));
+    }
+
+    @PostMapping("/refunds")
+    public ResponseEntity<?> issueRefund(@Valid @RequestBody RefundRequestDto refundDto) {
+        try {
+            logger.info("Operator initiating refund of {} for seller ID {} on order ID {}",
+                    refundDto.getAmount(), refundDto.getSellerProfileId(), refundDto.getOrderId());
+            SellerLedgerEntryDto ledgerEntry = payoutService.processRefund(refundDto);
+            return ResponseEntity.ok(ledgerEntry);
+        } catch (Exception e) {
+            logger.error("Refund processing failed: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(new MessageResponseDto(e.getMessage()));
+        }
     }
 
     // === Platform Configuration Management ===

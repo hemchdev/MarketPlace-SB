@@ -10,13 +10,17 @@ import org.mapstruct.ReportingPolicy;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface SellerProfileMapper {
+
     @Mapping(source = "user", target = "userId", qualifiedByName = "userToUserId")
     @Mapping(source = "user.username", target = "username")
     @Mapping(source = "user.email", target = "userEmail")
+    @Mapping(source = "currentRating", target = "currentRating")
+    @Mapping(source = "commissionRateOverride", target = "commissionRateOverride")
+    @Mapping(source = "payPalEmail", target = "payPalEmail") // ADDED MAPPING
     SellerProfileDto toDto(SellerProfile sellerProfile);
+
     @Named("userToUserId")
     default Long userToUserId(User user) {
         return user != null ? user.getId() : null;
     }
 }
-

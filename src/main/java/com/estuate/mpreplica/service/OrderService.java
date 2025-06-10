@@ -8,6 +8,7 @@ import com.estuate.mpreplica.entity.SellerProfile;
 import com.estuate.mpreplica.enums.OrderItemStatus;
 import com.estuate.mpreplica.enums.OrderStatus;
 import com.estuate.mpreplica.enums.SellerOverallStatus;
+import com.estuate.mpreplica.events.OrderDeliveredEvent;
 import com.estuate.mpreplica.exception.InsufficientStockException;
 import com.estuate.mpreplica.exception.InvalidOperationException;
 import com.estuate.mpreplica.exception.ResourceNotFoundException;
@@ -19,6 +20,7 @@ import jakarta.persistence.OptimisticLockException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.security.access.AccessDeniedException;
@@ -46,7 +48,11 @@ public class OrderService {
     @Autowired private OrderMapper orderMapper;
     @Autowired private OrderItemMapper orderItemMapper;
     @Autowired private NotificationService notificationService;
-    @Autowired private PayoutService payoutService;
+    @Autowired private ApplicationEventPublisher eventPublisher; // MODIFIED: For publishing events
+
+    // NOTE: PayoutService is removed as a direct dependency.
+    // The link is now through the OrderDeliveredEvent and RemittanceService.
+    // @Autowired private PayoutService payoutService;
 
     @Transactional
     @Retryable(
@@ -132,7 +138,6 @@ public class OrderService {
             orderItem.setSellerId(creatingSellerProfile.getId());
             orderItem.setQuantity(itemRequest.getQuantity());
 
-            // CORRECTED: The price is now always the product's base price.
             BigDecimal priceAtPurchase = assignment.getProduct().getBasePrice();
 
             orderItem.setPriceAtPurchase(priceAtPurchase);
@@ -183,7 +188,7 @@ public class OrderService {
 
         OrderStatus oldStatus = order.getOrderStatus();
         order.setOrderStatus(dto.getStatus());
-        order.setOrderStatusReason(dto.getReason()); // Using the new field
+        order.setOrderStatusReason(dto.getReason());
 
         if (dto.getStatus() == OrderStatus.CANCELLED_BY_OPERATOR) {
             order.getItems().forEach(item -> {
@@ -215,8 +220,11 @@ public class OrderService {
         if (updatedOrder.getOrderStatus() == OrderStatus.CANCELLED_BY_OPERATOR && oldStatus != OrderStatus.CANCELLED_BY_OPERATOR) {
             notificationService.sendOrderCancelledToCustomer(updatedOrder, dto.getReason());
         }
+
+        // MODIFICATION: Check for delivered status and publish event
         if (updatedOrder.getOrderStatus() == OrderStatus.DELIVERED && oldStatus != OrderStatus.DELIVERED) {
-            payoutService.createLedgerEntriesForDeliveredOrder(updatedOrder);
+            eventPublisher.publishEvent(new OrderDeliveredEvent(this, updatedOrder));
+            notificationService.sendOrderDeliveredToCustomer(updatedOrder);
         }
 
 
@@ -283,7 +291,6 @@ public class OrderService {
                 logger.info("Stock for Product Assignment ID {} restored by {} due to seller cancellation of OrderItem ID {}.",
                         assignment.getId(), orderItem.getQuantity(), orderItem.getId());
             }
-            // Use the cancellationReason from the DTO
             orderItem.setCancellationReason(StringUtils.hasText(dto.getCancellationReason()) ? dto.getCancellationReason() : "Cancelled by seller " + sellerProfile.getName());
         } else {
             throw new InvalidOperationException("Seller cannot directly set item status to: " + nextItemStatus);
@@ -356,14 +363,13 @@ public class OrderService {
             orderRepository.save(order);
             logger.info("Order ID {} overall status automatically updated from {} to {}", order.getId(), currentOverallStatus, newOverallStatus);
 
-            if (newOverallStatus == OrderStatus.SHIPPED && currentOverallStatus != OrderStatus.SHIPPED) {
-                notificationService.sendOrderFullyShippedToCustomer(order);
-            } else if (newOverallStatus == OrderStatus.DELIVERED && currentOverallStatus != OrderStatus.DELIVERED) {
+            // MODIFICATION: Logic to publish event on DELIVERED status
+            if (newOverallStatus == OrderStatus.DELIVERED) {
+                eventPublisher.publishEvent(new OrderDeliveredEvent(this, order));
                 notificationService.sendOrderDeliveredToCustomer(order);
-                payoutService.createLedgerEntriesForDeliveredOrder(order);
+            } else if (newOverallStatus == OrderStatus.SHIPPED) {
+                notificationService.sendOrderFullyShippedToCustomer(order);
             } else if (newOverallStatus == OrderStatus.CANCELLED_BY_SELLER || newOverallStatus == OrderStatus.CANCELLED_BY_OPERATOR) {
-                // Specific cancellation notification might have already been sent.
-                // General update for consistency:
                 notificationService.sendOrderStatusUpdateToCustomer(order, "The overall status of your order has been updated due to cancellation.");
             }
             else {

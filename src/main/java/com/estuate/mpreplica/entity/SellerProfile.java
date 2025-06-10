@@ -7,8 +7,13 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
+import java.math.BigDecimal;
 
-
+/**
+ * Represents a seller's profile.
+ * This reverted version brings back the 'payPalEmail' field to the main profile,
+ * as the separate SellerPayoutProfile entity has been removed.
+ */
 @Entity
 @Table(name = "seller_profiles")
 @Getter
@@ -68,10 +73,16 @@ public class SellerProfile extends Auditable {
     @Column(name = "status_reason", columnDefinition = "TEXT")
     private String statusReason;
 
-    @Column(name = "rating")
-    private Integer rating;
+    @Column(name = "current_rating")
+    private Double currentRating = 0.0;
 
+    @Column(name = "commission_rate_override", precision = 5, scale = 4)
+    private BigDecimal commissionRateOverride;
+
+    /**
+     * RESTORED: The seller's email address for receiving payments.
+     * Managed by the operator.
+     */
     @Column(name = "paypal_email", length = 255)
     private String payPalEmail;
 }
-

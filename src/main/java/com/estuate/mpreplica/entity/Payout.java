@@ -8,6 +8,10 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * Represents a payout to a seller.
+ * This version is simplified for a simulated payout process.
+ */
 @Entity
 @Table(name = "payouts")
 @Getter
@@ -29,6 +33,10 @@ public class Payout {
     @Column(nullable = false, length = 50)
     private PayoutStatus status;
 
+    /**
+     * A generic field to store a transaction ID from any payment system.
+     * In this reverted version, it will store a simulated ID.
+     */
     @Column(name = "psp_transaction_id")
     private String pspTransactionId;
 
@@ -40,4 +48,5 @@ public class Payout {
 
     @Column(name = "failure_reason", columnDefinition = "TEXT")
     private String failureReason;
+
 }

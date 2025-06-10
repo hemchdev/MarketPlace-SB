@@ -27,8 +27,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-
-
 @Service
 public class SellerProfileService {
     private static final Logger logger = LoggerFactory.getLogger(SellerProfileService.class);
@@ -39,8 +37,8 @@ public class SellerProfileService {
     @Autowired private SellerProfileMapper sellerProfileMapper;
     @Autowired private NotificationService notificationService;
 
-    @Value("${marketplace.default.seller.rating}")
-    private Integer defaultSellerRating;
+    @Value("${marketplace.default.seller.rating:3.0}")
+    private Double defaultSellerRating;
 
     private UserDetailsImpl getAuthenticatedUserDetails() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -66,11 +64,16 @@ public class SellerProfileService {
         sellerProfile.setName(request.getName());
         sellerProfile.setContactPhone(request.getContactPhone());
         sellerProfile.setAddress(request.getAddress());
-        sellerProfile.setRating(request.getRating() != null ? request.getRating() : defaultSellerRating);
+
+        double initialRating = (request.getRating() != null) ? request.getRating() : defaultSellerRating;
+        sellerProfile.setCurrentRating(initialRating);
+
+        // CORRECTED: Set payPalEmail from the request DTO
         sellerProfile.setPayPalEmail(request.getPayPalEmail());
 
         SellerProfile savedProfile = sellerProfileRepository.save(sellerProfile);
-        logger.info("SellerProfile created for {}, ID {}, with initial rating {}", user.getUsername(), savedProfile.getId(), savedProfile.getRating());
+        logger.info("SellerProfile created for {}, ID {}, with initial rating {} and PayPal email {}",
+                user.getUsername(), savedProfile.getId(), savedProfile.getCurrentRating(), savedProfile.getPayPalEmail());
         return sellerProfileMapper.toDto(savedProfile);
     }
 
@@ -81,10 +84,12 @@ public class SellerProfileService {
         logger.info("Operator {} updating details for seller ID: {}", adminUsername, sellerProfileId);
 
         if (dto.getRating() != null) {
-            profile.setRating(dto.getRating());
-            logger.info("Seller ID {} rating updated to: {}", sellerProfileId, dto.getRating());
+            profile.setCurrentRating(dto.getRating().doubleValue());
+            logger.info("Seller ID {} currentRating updated to: {}", sellerProfileId, profile.getCurrentRating());
         }
-        if (dto.getPayPalEmail() != null) {
+
+        // CORRECTED: Update payPalEmail if it is provided in the DTO
+        if (StringUtils.hasText(dto.getPayPalEmail())) {
             profile.setPayPalEmail(dto.getPayPalEmail());
             logger.info("Seller ID {} PayPal email updated to: {}", sellerProfileId, dto.getPayPalEmail());
         }
@@ -93,6 +98,7 @@ public class SellerProfileService {
         return sellerProfileMapper.toDto(updatedProfile);
     }
 
+    // ... other methods in SellerProfileService remain the same ...
     public SellerProfileDto getSellerProfileById(Long id) {
         return sellerProfileMapper.toDto(getSellerProfileEntityById(id));
     }
@@ -159,7 +165,6 @@ public class SellerProfileService {
         }
     }
 
-    // --- Restored Webhook Handling Logic ---
     @Transactional
     public SellerProfileDto handleIdMeStatusUpdate(IdMeWebhookPayload payload) {
         SellerProfile profile = getSellerProfileEntityById(payload.getSellerProfileId());
@@ -230,4 +235,3 @@ public class SellerProfileService {
         return sellerProfileMapper.toDto(updatedProfile);
     }
 }
-
